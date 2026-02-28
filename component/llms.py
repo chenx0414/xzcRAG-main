@@ -39,7 +39,7 @@ class Openai_model:
         有用的回答:"""
 
 
-        info = self.db.query(question, k=3)
+        info = self.db.query(question, k=5, retrieve_k=25)
 
         prompt=PromptTemplate(template=template,input_variables=["question","info"]).format(question=question,info=info)
 
