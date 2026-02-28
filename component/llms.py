@@ -22,8 +22,8 @@ class Openai_model:
         #加载向量数据库，embedding模型
         chunks = ReadFile("data").get_all_chunk_content(max_len=600, cover_len=150)
         self.db=Vectordatabase([doc.page_content for doc in chunks])
-        # self.db.get_vector()
-        self.db.load_vector()
+        self.db.get_vector()
+        # self.db.load_vector()
         
     #定义chat方法
     def chat(self,question:str):
