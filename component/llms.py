@@ -1,50 +1,95 @@
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
 from component.databases import Vectordatabase
 from component.data_chunker import ReadFile
-import os
+from component.prompts import PromptEngineer
+from typing import List
 
-#把api_key放在环境变量中,可以在系统环境变量中设置，也可以在代码中设置
-# import os
-# os.environ['OPENAI_API_KEY'] = ''
 
 class Openai_model:
-    def __init__(self,temperature:float=0.5) -> None:
+    def __init__(self, temperature: float = 0.3):
+        """初始化大模型 + 向量数据库 + 多策略 Prompt 引擎"""
         
-        #初始化大模型
-        self.model=ChatOpenAI(
+        # 初始化 DeepSeek-V3.2（SiliconFlow）
+        self.model = ChatOpenAI(
             model="deepseek-ai/DeepSeek-V3.2",
             api_key="sk-nifczyridmdpikqljtjodsmirloaqqegzbuhrmnizwehuidf",
             base_url="https://api.siliconflow.cn/v1",
-            temperature=temperature
+            temperature=temperature,
+            max_tokens=2048
         )
 
-        #加载向量数据库，embedding模型
+        # 加载文档并构建向量数据库
+        print("正在加载文档并构建 FAISS 向量数据库...")
         chunks = ReadFile("data").get_all_chunk_content(max_len=600, cover_len=150)
-        self.db=Vectordatabase([doc.page_content for doc in chunks])
-        self.db.get_vector()
-        # self.db.load_vector()
         
-    #定义chat方法
-    def chat(self,question:str):
+        self.db = Vectordatabase([doc.page_content for doc in chunks])
+        self.db.get_vector()        # 首次运行使用此行
+        # self.db.load_vector()     # 后续可改为此行加速启动
 
-        #这里利用输入的问题与向量数据库里的相似度来匹配最相关的信息，填充到输入的提示词中
-        template="""使用以上下文来回答用户的问题。如果你不知道答案，就说你不知道。总是使用中文回答。
-        问题: {question}
-        可参考的上下文：
-        ···
-        {info}
-        ···
-        如果给定的上下文无法让你做出回答，请回答数据库中没有这个内容，你不知道。
-        有用的回答:"""
+        # 初始化多策略 Prompt 引擎
+        self.prompt_engineer = PromptEngineer()
+        
+        print("✅ Openai_model 初始化完成 | 多策略 Prompt 已启用 (CoT + Few-shot + 上下文压缩)")
+
+    def chat(self, 
+             question: str,
+             use_cot: bool = True,
+             use_fewshot: bool = True,
+             use_compression: bool = True,
+             k: int = 6,
+             retrieve_k: int = 30) -> str:
+        """
+        增强版对话接口（默认全策略开启，效果最佳）
+        参数说明：
+            use_cot          : 是否启用思维链 CoT
+            use_fewshot      : 是否注入 Few-shot 示例
+            use_compression  : 是否让模型先进行上下文压缩
+            k                : 最终返回的参考片段数
+            retrieve_k       : 向量检索候选数量（给 Reranker 使用）
+        """
+        # 1. 向量检索 + SiliconFlow Reranker
+        raw_contexts: List[str] = self.db.query(
+            query=question, 
+            k=k, 
+            retrieve_k=retrieve_k
+        )
+
+        # 2. 格式化为带编号的上下文（便于模型引用）
+        context_str = "\n\n".join([f"[{i+1}] {text}" for i, text in enumerate(raw_contexts)])
+
+        # 3. 生成多策略优化 Prompt
+        prompt_template = self.prompt_engineer.build_prompt_template(
+            use_cot=use_cot,
+            use_fewshot=use_fewshot,
+            use_compression=use_compression
+        )
+
+        messages = prompt_template.format_messages(
+            context=context_str,
+            question=question
+        )
+
+        # 4. 调用模型
+        response = self.model.invoke(messages)
+        return response.content if hasattr(response, 'content') else str(response)
 
 
-        info = self.db.query(question, k=5, retrieve_k=25)
+# ── 测试使用（直接运行本文件即可测试） ─────────────────────────────────────
+if __name__ == "__main__":
+    model = Openai_model(temperature=0.3)
 
-        prompt=PromptTemplate(template=template,input_variables=["question","info"]).format(question=question,info=info)
+    test_question = "请问公司2024年的主要业务和核心优势是什么？"
 
-        res=self.model.invoke(prompt)
+    answer = model.chat(
+        question=test_question,
+        use_cot=True,
+        use_fewshot=True,
+        use_compression=True
+    )
 
-
-        return  res
-
+    print("\n" + "="*70)
+    print("用户问题：", test_question)
+    print("="*70)
+    print("模型回答：\n")
+    print(answer)
+    print("="*70)
