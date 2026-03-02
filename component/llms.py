@@ -3,7 +3,7 @@ from component.databases import Vectordatabase
 from component.data_chunker import ReadFile
 from component.prompts import PromptEngineer
 from typing import List
-
+import os
 
 class Openai_model:
     def __init__(self, temperature: float = 0.3):
@@ -19,17 +19,20 @@ class Openai_model:
         )
 
         # 加载文档并构建向量数据库
-        print("正在加载文档并构建 FAISS 向量数据库...")
+        print("正在加载文档并构建 FAISS 向量数据库")
         chunks = ReadFile("data").get_all_chunk_content(max_len=600, cover_len=150)
         
         self.db = Vectordatabase([doc.page_content for doc in chunks])
-        self.db.get_vector()        # 首次运行使用此行
-        # self.db.load_vector()     # 后续可改为此行加速启动
+        
+        if os.path.exists("database") and os.path.isdir("database"):
+            self.db.load_vector()
+        else:
+            self.db.get_vector() # 首次运行使用此行    
 
         # 初始化多策略 Prompt 引擎
         self.prompt_engineer = PromptEngineer()
         
-        print("✅ Openai_model 初始化完成 | 多策略 Prompt 已启用 (CoT + Few-shot + 上下文压缩)")
+        print("Openai_model 初始化完成 | 多策略 Prompt 已启用 (CoT + Few-shot + 上下文压缩)")
 
     def chat(self, 
              question: str,
@@ -64,13 +67,15 @@ class Openai_model:
             use_compression=use_compression
         )
 
-        messages = prompt_template.format_messages(
-            context=context_str,
-            question=question
-        )
+        # 直接把 Prompt 和 LLM 拼成一条链（LCEL 语法）
+        chain = prompt_template | self.model
 
-        # 4. 调用模型
-        response = self.model.invoke(messages)
+        # 4. 执行 Chain
+        response = chain.invoke({
+            "context": context_str,
+            "question": question
+        })
+
         return response.content if hasattr(response, 'content') else str(response)
 
 

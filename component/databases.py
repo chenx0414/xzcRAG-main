@@ -5,7 +5,7 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.documents import Document
-import requests   # ← 新增
+import requests  
 
 class Vectordatabase:
     """使用 LangChain + DashScopeEmbeddings + FAISS + SiliconFlow Reranker"""
@@ -20,7 +20,7 @@ class Vectordatabase:
         self.docs = docs or []
 
         # ==================== 新增：SiliconFlow Reranker 配置 ====================
-        self.rerank_api_key = "sk-nifczyridmdpikqljtjodsmirloaqqegzbuhrmnizwehuidf"  # 与 llms.py 完全一致
+        self.rerank_api_key = "sk-nifczyridmdpikqljtjodsmirloaqqegzbuhrmnizwehuidf"  
         self.rerank_model = "BAAI/bge-reranker-v2-m3"   # 推荐（轻量高效）
         # 备选更强模型（2025 新款）：
         # self.rerank_model = "Qwen/Qwen3-Reranker-0.6B"   # 最轻量
@@ -30,14 +30,14 @@ class Vectordatabase:
     def get_vector(self) -> None:
         if not self.docs:
             raise ValueError("请传入文档列表！")
-        documents = [Document(page_content=doc) for doc in self.docs]
-        self.vectorstore = FAISS.from_documents(
+        documents = [Document(page_content=doc) for doc in self.docs] # 把 List[str] 转成 List[Document]，metadata 默认为空字典 {}
+        self.vectorstore = FAISS.from_documents(  # 创建向量数据库
             documents=documents,
             embedding=self.embeddings,
             distance_strategy=DistanceStrategy.COSINE
         )
         self.vectorstore.save_local(self.path)
-        print(f"✅ FAISS 向量数据库创建完成，已保存至: {self.path}")
+        print(f"FAISS向量数据库创建完成，保存至: {self.path}")
 
     def load_vector(self) -> None:
         if not os.path.exists(self.path):
@@ -47,9 +47,9 @@ class Vectordatabase:
             embeddings=self.embeddings,
             allow_dangerous_deserialization=True
         )
-        print(f"✅ 已加载 FAISS 向量数据库: {self.path}")
+        print(f"已加载FAISS向量数据库: {self.path}")
 
-    # ====================== 新增 Reranker 方法 ======================
+    # ====================== Reranker 方法 ======================
     def _rerank_with_siliconflow(self, query: str, documents: List[str], top_n: int = 8) -> List[str]:
         """SiliconFlow /v1/rerank 重排序"""
         url = "https://api.siliconflow.cn/v1/rerank"
@@ -75,9 +75,9 @@ class Vectordatabase:
             print(f"⚠️ Rerank API 调用失败: {e}，回退到原始顺序")
             return documents[:top_n]
 
-    # ====================== 修改后的 query 方法 ======================
+    # ====================== query 方法 ======================
     def query(self, query: str, k: int = 3, retrieve_k: int = 25) -> List[str]:
-        """向量粗召回 + Reranker 重排序（推荐使用）"""
+        """向量粗召回 + Reranker 重排序"""
         if self.vectorstore is None:
             self.load_vector()
 

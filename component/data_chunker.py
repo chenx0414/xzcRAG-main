@@ -22,7 +22,7 @@ class ReadFile:
             all_docs.extend(loader.load())
         return all_docs
 
-    # 切分数据，传入一个字符串，返回一个字块列表
+    # 切分数据，传入List[Document]，返回切分后的List[Document]
     # 使用langchain的递归拆分法
     @classmethod
     def chunk_documents(cls, documents, max_token_len: int = 600, cover_content: int = 150):
