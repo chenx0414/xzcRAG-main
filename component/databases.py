@@ -14,13 +14,13 @@ class Vectordatabase:
         self.path = path
         self.embeddings = DashScopeEmbeddings(
             model="text-embedding-v3",
-            dashscope_api_key="sk-c322e63a35e6494682b683f3a68736b1"
+            dashscope_api_key="sk-"
         )
         self.vectorstore = None
         self.docs = docs or []
 
         # ==================== 新增：SiliconFlow Reranker 配置 ====================
-        self.rerank_api_key = "sk-nifczyridmdpikqljtjodsmirloaqqegzbuhrmnizwehuidf"  
+        self.rerank_api_key = "sk-"  
         self.rerank_model = "BAAI/bge-reranker-v2-m3"   # 推荐（轻量高效）
         # 备选更强模型（2025 新款）：
         # self.rerank_model = "Qwen/Qwen3-Reranker-0.6B"   # 最轻量

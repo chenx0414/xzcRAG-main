@@ -12,7 +12,7 @@ class Openai_model:
         # 初始化 DeepSeek-V3.2（SiliconFlow）
         self.model = ChatOpenAI(
             model="deepseek-ai/DeepSeek-V3.2",
-            api_key="sk-nifczyridmdpikqljtjodsmirloaqqegzbuhrmnizwehuidf",
+            api_key="sk-",
             base_url="https://api.siliconflow.cn/v1",
             temperature=temperature,
             max_tokens=2048
